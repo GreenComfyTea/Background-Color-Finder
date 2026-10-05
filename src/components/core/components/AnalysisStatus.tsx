@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Progress from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AnalysisState } from "@/types/types";
 import { STATES } from "@/constants/constants";
 
@@ -10,6 +11,7 @@ const TITLES = {
   scanning: "Scanning every pixel…",
   grouping: "Building the adaptive palette…",
   searching: "Searching the complete RGB space…",
+  verifying: "Verifying the 12 category winners against every source pixel…",
   complete: "Search complete",
   cancelled: "Analysis cancelled",
   error: "Analysis failed",
@@ -20,11 +22,14 @@ type Props = {
 };
 
 const AnalysisStatus = memo<Props>(({ state }) => {
-  const running = useMemo(() => STATES.includes(state.phase), []);
+  const running = useMemo<boolean>(
+    () => STATES.includes(state.phase),
+    [state.phase],
+  );
 
-  const progress = useMemo(
+  const progress = useMemo<number>(
     () => (state.total ? (state.processed / state.total) * 100 : 0),
-    [],
+    [state.processed, state.total],
   );
 
   if (state.phase === "idle") {
@@ -41,38 +46,41 @@ const AnalysisStatus = memo<Props>(({ state }) => {
   }
 
   return (
-    <section
-      className="flex flex-col gap-3 rounded-xl border bg-card p-5"
-      aria-label="Analysis progress"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p role="status" className="text-sm font-medium">
-          {TITLES[state.phase]}
-        </p>
+    <Card size="sm" className="shrink-0" aria-label="Analysis progress">
+      <CardHeader>
+        <CardTitle role="status">{TITLES[state.phase]}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
         <p className="text-xs tabular-nums text-muted-foreground">
           {state.phase === "complete"
-            ? `${(state.elapsed / 1000).toFixed(1)} seconds · all 16,777,216 candidates evaluated`
+            ? `${(state.elapsed / 1000).toFixed(1)}s · all RGB colors evaluated and source-verified`
             : state.total
               ? `${state.processed.toLocaleString()} / ${state.total.toLocaleString()} (${progress.toFixed(1)}%)`
               : ""}
         </p>
-      </div>
-      {running && (
-        <Progress
-          value={progress}
-          aria-label={TITLES[state.phase]}
-          aria-valuenow={Math.round(progress)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
-      )}
-      {state.phase === "searching" && (
-        <p className="text-xs text-muted-foreground">
-          Exact evaluation against every palette color. Larger palettes take
-          longer; you can cancel at any time.
-        </p>
-      )}
-    </section>
+        {running && (
+          <Progress
+            value={progress}
+            aria-label={TITLES[state.phase]}
+            aria-valuenow={Math.round(progress)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        )}
+        {state.phase === "searching" && (
+          <p className="text-xs text-muted-foreground">
+            Exact evaluation against every palette color. Larger palettes take
+            longer; you can cancel at any time.
+          </p>
+        )}
+        {state.phase === "verifying" && (
+          <p className="text-xs text-muted-foreground">
+            The RGB search is complete. Checking actual nearest-source distances
+            without changing the ranking; you can still cancel.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 });
 

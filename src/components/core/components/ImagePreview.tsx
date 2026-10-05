@@ -22,42 +22,46 @@ import type { LoadedImage } from "@/types/types";
 type Props = {
   image: LoadedImage | null;
   background: string;
-  matte: string;
 };
 
-const ImagePreview = memo<Props>(({ image, background, matte }) => {
-  const style = useMemo<CSSProperties>(
+const ImagePreview = memo<Props>(({ image, background }) => {
+  const backdropStyle = useMemo<CSSProperties>(
     () => ({ backgroundColor: background }),
     [background],
   );
   const imageStyle = useMemo<CSSProperties>(
-    () => ({ backgroundColor: matte }),
-    [matte],
+    () => ({
+      // Fit both preview dimensions, including upscaling smaller images.
+      width: image
+        ? `min(100cqw, calc(100cqh * ${image.width / image.height}))`
+        : undefined,
+    }),
+    [image],
   );
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <Card size="sm" className="min-h-0 min-w-0 xl:h-full">
+      <CardHeader className="shrink-0">
         <CardTitle>Image preview</CardTitle>
-        <CardDescription>
+        <CardDescription className="truncate" title={image?.name}>
           {image ? image.name : "Your image, with a better backdrop."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1">
+      <CardContent className="flex h-[60svh] min-h-0 xl:h-auto xl:flex-1">
         {image && (
           <div
-            style={style}
-            className="flex min-h-72 w-full items-center justify-center rounded-xl p-8 transition-colors"
+            className="flex size-full min-h-0 items-center justify-center overflow-hidden rounded-xl [container-type:size]"
+            style={backdropStyle}
           >
             <img
               src={image.url}
               alt={`Preview of ${image.name}`}
-              className="max-h-96 max-w-full rounded-sm object-contain shadow-lg"
+              className="h-auto max-h-full max-w-full object-contain"
               style={imageStyle}
             />
           </div>
         )}
         {!image && (
-          <Empty className="min-h-72 w-full border border-dashed">
+          <Empty className="size-full min-h-0 border border-dashed">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <HugeiconsIcon icon={Image01Icon} />
@@ -70,10 +74,10 @@ const ImagePreview = memo<Props>(({ image, background, matte }) => {
           </Empty>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="shrink-0">
         <p className="text-xs text-muted-foreground">
           {image
-            ? `${image.width.toLocaleString()}x${image.height.toLocaleString()} · native-resolution analysis · backdrop ${background}`
+            ? `${image.width.toLocaleString()} × ${image.height.toLocaleString()} · backdrop ${background}`
             : "PNG, JPEG, WebP, GIF, AVIF and other browser-supported images"}
         </p>
       </CardFooter>

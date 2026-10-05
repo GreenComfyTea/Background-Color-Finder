@@ -1,6 +1,7 @@
 import type { WorkerResponse, WorkerRequest } from "@/types/types";
-import { createPalette } from "./palette";
+import createPalette from "./palette";
 import searchColors from "@/utils/search";
+import verifyCandidates from "./verifyCandidates";
 
 function send(message: WorkerResponse): void {
   self.postMessage(message);
@@ -18,12 +19,17 @@ function searchProgress(processed: number, total: number): void {
   send({ type: "progress", phase: "searching", processed, total });
 }
 
+function verificationProgress(processed: number, total: number): void {
+  send({ type: "progress", phase: "verifying", processed, total });
+}
+
 function handleMessage(event: MessageEvent<WorkerRequest>): void {
   const started = performance.now();
 
   try {
+    const pixels = new Uint8ClampedArray(event.data.pixels);
     const palette = createPalette(
-      new Uint8ClampedArray(event.data.pixels),
+      pixels,
       event.data.background,
       paletteProgress,
     );
@@ -31,7 +37,13 @@ function handleMessage(event: MessageEvent<WorkerRequest>): void {
     send({ type: "palette", palette });
     searchProgress(0, 256 ** 3);
 
-    const candidates = searchColors(palette.colors, searchProgress);
+    const winners = searchColors(palette.colors, searchProgress);
+    const candidates = verifyCandidates(
+      winners,
+      pixels,
+      event.data.background,
+      verificationProgress,
+    );
 
     send({
       type: "complete",

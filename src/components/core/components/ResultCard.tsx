@@ -3,119 +3,93 @@ import type { CSSProperties } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Copy01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Candidate } from "@/types/types";
+import type { CategoryCandidate } from "@/types/types";
+import { COLOR_CATEGORIES } from "@/constants/constants";
 
 type Props = {
-  candidate: Candidate;
-  rank: number;
+  candidate: CategoryCandidate;
   selected: boolean;
   onSelect: (hex: string) => void;
 };
 
-const ResultCard = memo<Props>(({ candidate, rank, selected, onSelect }) => {
-  const [copyStatus, setCopyStatus] = useState<string>("");
-
+const ResultCard = memo<Props>(({ candidate, selected, onSelect }) => {
+  const [copyStatus, setCopyStatus] = useState("");
+  const categoryLabel = useMemo(
+    () =>
+      COLOR_CATEGORIES.find((category) => category.id === candidate.category)
+        ?.label ?? candidate.category,
+    [candidate.category],
+  );
   const style = useMemo<CSSProperties>(
     () => ({ backgroundColor: candidate.hex }),
     [candidate.hex],
   );
-
   const select = useCallback(
     () => onSelect(candidate.hex),
     [candidate.hex, onSelect],
   );
-
   const copyHex = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(candidate.hex);
       setCopyStatus("HEX copied");
     } catch {
-      setCopyStatus("Clipboard unavailable; select the value to copy.");
+      setCopyStatus("Clipboard unavailable; select the HEX value to copy.");
     }
   }, [candidate.hex]);
 
-  const copyRgb = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(`rgb(${candidate.rgb.join(", ")})`);
-      setCopyStatus("RGB copied");
-    } catch {
-      setCopyStatus("Clipboard unavailable; select the value to copy.");
-    }
-  }, [candidate.rgb]);
-
   return (
-    <Card size="sm" className="min-w-0">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <Badge variant={rank === 1 ? "default" : "secondary"}>#{rank}</Badge>
-          <span className="text-xs text-muted-foreground">
-            {selected ? "Previewing" : "Best match"}
-          </span>
-        </div>
+    <Card
+      size="sm"
+      className="min-w-0 gap-2 py-2"
+      data-category={candidate.category}
+      data-selected={selected}
+    >
+      <CardHeader className="px-3">
         <CardTitle>
-          <span className="font-mono">{candidate.hex}</span>
+          <span className="text-xs">{categoryLabel}</span>
         </CardTitle>
-        <CardDescription>RGB {candidate.rgb.join(" · ")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div
-          role="img"
-          style={style}
-          aria-label={`Recommended color ${candidate.hex}`}
-          className="h-24 rounded-lg border"
-        />
-        <dl className="grid grid-cols-2 gap-2 text-xs tabular-nums">
-          <dt className="text-muted-foreground">Score</dt>
-          <dd className="text-right font-semibold">
-            {candidate.score.toFixed(5)}
-          </dd>
-          <dt className="text-muted-foreground">Mean distance</dt>
-          <dd className="text-right">{candidate.mean.toFixed(5)}</dd>
-          <dt className="text-muted-foreground">Deviation</dt>
-          <dd className="text-right">{candidate.deviation.toFixed(5)}</dd>
-          <dt className="text-muted-foreground">Min distance</dt>
-          <dd className="text-right">{candidate.minimum.toFixed(5)}</dd>
-        </dl>
-      </CardContent>
-      <CardFooter className="flex-col items-stretch gap-2">
+      <CardContent className="px-3">
         <Button
-          variant={selected ? "secondary" : "outline"}
+          variant="outline"
+          className="h-10 w-full rounded-lg"
+          style={style}
+          aria-label={`Preview ${categoryLabel} backdrop ${candidate.hex}`}
           aria-pressed={selected}
+          title={selected ? "Currently previewing" : "Preview backdrop"}
           onClick={select}
         >
-          Preview backdrop
+          <span className="sr-only">
+            {selected ? "Previewing" : "Preview backdrop"}
+          </span>
         </Button>
-        <div className="flex gap-2">
+      </CardContent>
+      <CardFooter className="flex-col items-stretch gap-1 px-3">
+        <div className="flex min-w-0 items-center justify-between gap-1">
+          <span className="font-mono text-xs">{candidate.hex}</span>
           <Button
             variant="ghost"
-            size="sm"
-            className="flex-1"
+            size="icon-xs"
             onClick={copyHex}
+            aria-label={`Copy HEX ${candidate.hex}`}
+            title="Copy HEX"
           >
-            <HugeiconsIcon icon={Copy01Icon} data-icon="inline-start" />
-            HEX
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-1"
-            onClick={copyRgb}
-          >
-            RGB
+            <HugeiconsIcon icon={Copy01Icon} />
           </Button>
         </div>
-        <p role="status" className="min-h-4 text-xs text-muted-foreground">
+        {candidate.sourceMinimum === 0 && (
+          <span className="text-xs text-destructive">Source color match</span>
+        )}
+        <span role="status" className="sr-only">
           {copyStatus}
-        </p>
+        </span>
       </CardFooter>
     </Card>
   );

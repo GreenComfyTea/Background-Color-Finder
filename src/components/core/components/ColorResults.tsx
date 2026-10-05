@@ -1,54 +1,79 @@
 import { memo, useCallback } from "react";
-import ResultCard from "./ResultCard";
-import type { Candidate } from "@/types/types";
+import ResultPair from "./ResultPair";
+import type { CategoryCandidate, ResultGroup } from "@/types/types";
+import { RESULT_GROUPS } from "@/constants/constants";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 type Props = {
-  candidates: Candidate[];
+  candidates: CategoryCandidate[];
   selected: string;
   onSelect: (hex: string) => void;
 };
 
 const ColorResults = memo<Props>(({ candidates, selected, onSelect }) => {
-  const renderCandidate = useCallback(
-    (candidate: Candidate, index: number) => {
+  const renderGroup = useCallback(
+    (group: ResultGroup) => {
       return (
-        <ResultCard
-          key={candidate.hex}
-          candidate={candidate}
-          rank={index + 1}
-          selected={selected === candidate.hex}
+        <ResultPair
+          key={group.family}
+          group={group}
+          candidates={candidates}
+          selected={selected}
           onSelect={onSelect}
         />
       );
     },
-    [onSelect, selected],
+    [candidates, onSelect, selected],
   );
 
-  if (!candidates.length) {
-    return null;
-  }
-
   return (
-    <section className="flex flex-col gap-5" aria-labelledby="results-title">
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-primary">
-          The results
-        </p>
-        <h2
-          id="results-title"
-          className="text-2xl font-semibold tracking-tight"
-        >
-          Five colors that stand apart
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ranked by mean OKLab distance minus standard deviation. Exact winners
-          may look similar—no artificial diversity filter is applied.
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {candidates.map(renderCandidate)}
-      </div>
-    </section>
+    <Card
+      size="sm"
+      className="min-h-0 min-w-0 xl:h-full"
+      aria-labelledby="results-title"
+    >
+      <CardHeader className="shrink-0">
+        <CardTitle id="results-title">Color matches</CardTitle>
+        <CardDescription>
+          Select a swatch to preview its backdrop.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        {candidates.length > 0 ? (
+          <ScrollArea
+            className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:h-auto xl:[&_[data-slot=scroll-area-viewport]]:h-full"
+            aria-label="Matched backdrop colors"
+            type="auto"
+          >
+            <div className="flex flex-col gap-4 p-px pr-3">
+              {RESULT_GROUPS.map(renderGroup)}
+            </div>
+          </ScrollArea>
+        ) : (
+          <Empty className="min-h-48 border border-dashed">
+            <EmptyHeader>
+              <EmptyTitle>Find your backdrop</EmptyTitle>
+              <EmptyDescription>
+                Load an image and find the best colors to see your matches here.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+      </CardContent>
+    </Card>
   );
 });
 

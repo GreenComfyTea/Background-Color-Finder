@@ -59,14 +59,12 @@ const ImageInput = memo<Props>(({ loading, onLoad }) => {
   );
 
   return (
-    <Card>
+    <Card size="sm" className="shrink-0">
       <CardHeader>
-        <CardTitle>Start with an image</CardTitle>
-        <CardDescription>
-          Upload a file, paste an image anywhere, or enter its URL.
-        </CardDescription>
+        <CardTitle>Image source</CardTitle>
+        <CardDescription>Choose, drop, or paste an image.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
+      <CardContent className="flex flex-col gap-4">
         <input
           ref={fileRef}
           type="file"
@@ -79,7 +77,7 @@ const ImageInput = memo<Props>(({ loading, onLoad }) => {
         <Button
           variant="outline"
           disabled={loading}
-          className="h-28 w-full flex-col gap-3 border-dashed"
+          className="h-20 w-full flex-col gap-2 border-dashed"
           onClick={openPicker}
         >
           <HugeiconsIcon icon={Upload04Icon} data-icon="inline-start" />
@@ -88,9 +86,7 @@ const ImageInput = memo<Props>(({ loading, onLoad }) => {
         <form onSubmit={submitUrl}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="image-url">
-                Image URL or image data URL
-              </FieldLabel>
+              <FieldLabel htmlFor="image-url">Image URL / data URL</FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <HugeiconsIcon icon={Link01Icon} />
@@ -116,9 +112,7 @@ const ImageInput = memo<Props>(({ loading, onLoad }) => {
         </form>
       </CardContent>
       <CardFooter>
-        <p className="text-xs text-muted-foreground">
-          Local analysis · up to 16 MP / 50 MB · no image uploads
-        </p>
+        <p className="text-xs text-muted-foreground">up to 16 MP / 50 MB</p>
       </CardFooter>
     </Card>
   );

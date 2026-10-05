@@ -1,4 +1,3 @@
-import { MAX_BYTES, MAX_PIXELS } from "@/constants/constants";
 import type { LoadedImage } from "@/types/types";
 
 async function loadImage(
@@ -41,30 +40,16 @@ async function loadImage(
       throw new Error(`Image request failed (HTTP ${response.status}).`);
     }
 
-    if (Number(response.headers.get("content-length")) > MAX_BYTES) {
-      throw new Error("Images must be at most 50 MB.");
-    }
-
     const reader = response.body?.getReader();
 
     if (reader) {
       const chunks: Uint8Array<ArrayBuffer>[] = [];
-
-      let bytes = 0;
 
       while (true) {
         const result = await reader.read();
 
         if (result.done) {
           break;
-        }
-
-        bytes += result.value.length;
-
-        if (bytes > MAX_BYTES) {
-          await reader.cancel();
-
-          throw new Error("Images must be at most 50 MB.");
         }
 
         chunks.push(new Uint8Array(result.value));
@@ -83,10 +68,6 @@ async function loadImage(
 
   if (signal.aborted) {
     throw new DOMException("Aborted", "AbortError");
-  }
-
-  if (blob.size > MAX_BYTES) {
-    throw new Error("Images must be at most 50 MB.");
   }
 
   if (!blob.size) {
@@ -114,12 +95,6 @@ async function loadImage(
   const { width, height } = bitmap;
 
   bitmap.close();
-
-  if (width * height > MAX_PIXELS) {
-    throw new Error(
-      "This image exceeds the 16-megapixel safety limit. No resizing is performed; choose a smaller image.",
-    );
-  }
 
   if (signal.aborted) {
     throw new DOMException("Aborted", "AbortError");

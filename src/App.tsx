@@ -1,8 +1,8 @@
 import { memo } from "react";
-import ContrastFinder from "./components/core/ContrastFinder";
+import Main from "./components/core/Main";
 
 const App = memo(() => {
-  return <ContrastFinder />;
+  return <Main />;
 });
 
 export default App;

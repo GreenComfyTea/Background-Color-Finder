@@ -69,7 +69,7 @@ function scoreColor(rgb: RGB, palette: readonly OKLab[]): Candidate {
   return {
     rgb,
     hex: toHex(rgb),
-    score: mean - deviation,
+    score: minimum * Math.max(0, mean - deviation),
     mean,
     deviation,
     minimum,

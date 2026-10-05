@@ -1,14 +1,7 @@
 import { memo, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
@@ -36,13 +29,7 @@ const AnalysisSettings = memo<Props>(
     );
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>The search parameters</CardTitle>
-          <CardDescription>
-            Every pixel. Every RGB color. No shortcuts.
-          </CardDescription>
-        </CardHeader>
+      <Card size="sm" className="shrink-0">
         <CardContent className="flex flex-col gap-5">
           <FieldGroup>
             <Field>
@@ -59,21 +46,10 @@ const AnalysisSettings = memo<Props>(
                 <span className="font-mono text-sm">{matte}</span>
               </div>
               <FieldDescription>
-                Partial transparency is composited onto this color. Fully
-                transparent pixels are excluded.
+                Used for partial transparency. Clear pixels are excluded.
               </FieldDescription>
             </Field>
           </FieldGroup>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            <dt className="text-muted-foreground">Palette coverage</dt>
-            <dd className="text-right">100% of visible pixels</dd>
-            <dt className="text-muted-foreground">Adaptive palette</dt>
-            <dd className="text-right">1–64 colors</dd>
-            <dt className="text-muted-foreground">RMS error target</dt>
-            <dd className="text-right">≤ 0.0200 OKLab</dd>
-            <dt className="text-muted-foreground">Candidate colors</dt>
-            <dd className="text-right">16,777,216</dd>
-          </dl>
         </CardContent>
         <CardFooter>
           {busy && (

@@ -4,17 +4,19 @@ import ColorPalette from "@/components/core/components/ColorPalette";
 import ColorResults from "@/components/core/components/ColorResults";
 import ImageInput from "@/components/core/components/ImageInput";
 import ImagePreview from "@/components/core/components/ImagePreview";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Upload04Icon } from "@hugeicons/core-free-icons";
 import { STATES } from "@/constants/constants";
 import type {
   LoadedImage,
   AnalysisState,
   WorkerResponse,
   WorkerRequest,
+  CategoryCandidate,
 } from "@/types/types";
 
-import { fromHex } from "@/utils/color";
+import { compareCandidates, fromHex } from "@/utils/color";
 import { loadImage, readPixels } from "@/utils/image";
 
 import { memo, useState, useRef, useCallback, useEffect } from "react";
@@ -26,6 +28,7 @@ const Main = memo(() => {
   const generation = useRef<number>(0);
 
   const [image, setImage] = useState<LoadedImage | null>(null);
+  const [draggingFile, setDraggingFile] = useState<boolean>(false);
   const [matte, setMatte] = useState<string>("#FFFFFF");
   const [selected, setSelected] = useState<string>("#FFFFFF");
   const [state, setState] = useState<AnalysisState>({
@@ -65,6 +68,15 @@ const Main = memo(() => {
   }, [commit, stop]);
 
   const selectColor = useCallback((hex: string) => setSelected(hex), []);
+  const previewBest = useCallback(
+    (candidates: readonly CategoryCandidate[]) => {
+      let best = candidates[0];
+      for (const candidate of candidates)
+        if (!best || compareCandidates(candidate, best) < 0) best = candidate;
+      if (best) setSelected(best.hex);
+    },
+    [],
+  );
 
   const changeMatte = useCallback(
     (hex: string) => {
@@ -165,7 +177,7 @@ const Main = memo(() => {
           total: 256 ** 3,
         });
 
-        setSelected(message.candidates[0].hex);
+        previewBest(message.candidates);
 
         workerRef.current?.terminate();
         workerRef.current = null;
@@ -176,7 +188,7 @@ const Main = memo(() => {
         workerRef.current = null;
       }
     },
-    [commit],
+    [commit, previewBest],
   );
   const workerError = useCallback(
     (event: ErrorEvent) => {
@@ -308,40 +320,119 @@ const Main = memo(() => {
       return;
     }
 
+    window.addEventListener("paste", paste);
     return removePaste;
   }, [paste, removePaste]);
 
   const setupLifecycle = useCallback(() => dispose, [dispose]);
 
+  const setupFileDrop = useCallback(() => {
+    let dragDepth = 0;
+    let dragTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    // Files are not readable until drop; the type list is available during drag.
+    const hasFiles = (event: DragEvent) =>
+      event.dataTransfer?.types.includes("Files") ?? false;
+
+    const resetDrag = () => {
+      clearTimeout(dragTimeout);
+      dragDepth = 0;
+      setDraggingFile(false);
+    };
+
+    const showDrag = () => {
+      setDraggingFile(true);
+      clearTimeout(dragTimeout);
+      // External drags may be cancelled without sending dragend to this page.
+      dragTimeout = setTimeout(resetDrag, 1500);
+    };
+
+    const enter = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+
+      event.preventDefault();
+      dragDepth++;
+      showDrag();
+    };
+
+    const over = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      showDrag();
+    };
+
+    const leave = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) resetDrag();
+    };
+
+    const drop = (event: DragEvent) => {
+      resetDrag();
+      if (!hasFiles(event)) return;
+
+      event.preventDefault();
+      const file = event.dataTransfer?.files[0];
+      if (file) void handleLoad(file);
+    };
+
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") resetDrag();
+    };
+
+    window.addEventListener("dragenter", enter, true);
+    window.addEventListener("dragover", over, true);
+    window.addEventListener("dragleave", leave, true);
+    window.addEventListener("drop", drop, true);
+    window.addEventListener("dragend", resetDrag);
+    window.addEventListener("blur", resetDrag);
+    window.addEventListener("keydown", keyDown);
+
+    return () => {
+      clearTimeout(dragTimeout);
+      window.removeEventListener("dragenter", enter, true);
+      window.removeEventListener("dragover", over, true);
+      window.removeEventListener("dragleave", leave, true);
+      window.removeEventListener("drop", drop, true);
+      window.removeEventListener("dragend", resetDrag);
+      window.removeEventListener("blur", resetDrag);
+      window.removeEventListener("keydown", keyDown);
+    };
+  }, [handleLoad]);
+
   useEffect(setupPaste, [setupPaste]);
+  useEffect(setupFileDrop, [setupFileDrop]);
   useEffect(setupLifecycle, [setupLifecycle]);
 
   return (
-    <main className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 sm:px-8 sm:py-12">
-      <header className="flex flex-col gap-5">
+    <main className="flex min-h-svh w-full flex-col gap-4 p-4 xl:h-dvh xl:min-h-0 xl:overflow-hidden xl:p-5">
+      {draggingFile && (
+        <div className="pointer-events-none fixed inset-0 flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
+          <Alert role="status" className="max-w-md border-dashed">
+            <HugeiconsIcon icon={Upload04Icon} />
+            <AlertTitle>Drop an image to load it</AlertTitle>
+            <AlertDescription>
+              Drop anywhere on this page. Only the first file is loaded. Choose
+              Find the best colors to start analysis.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+      <header className="flex shrink-0 flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <a href="#" className="text-sm font-semibold tracking-tight">
+          <a href="#" className="text-lg font-semibold tracking-tight">
             BACKGROUND COLOR FINDER
           </a>
-          <Badge variant="outline">On-device · OKLab</Badge>
-        </div>
-        <div className="max-w-3xl">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-primary">
-            Find your counterpoint
-          </p>
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            The right color makes
-            <br />
-            your image stand apart.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Explore every RGB color to find the strongest, most consistent
-            perceptual separation from your image.
-          </p>
         </div>
       </header>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)]">
-        <div className="flex flex-col gap-6">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.75fr)_minmax(0,1.75fr)_minmax(0,1fr)]">
+        <div
+          className="flex min-h-0 min-w-0 flex-col gap-4 xl:overflow-y-auto xl:overscroll-contain xl:p-px"
+          aria-label="Image and analysis controls"
+        >
           <ImageInput loading={state.phase === "loading"} onLoad={handleLoad} />
           <AnalysisSettings
             matte={matte}
@@ -351,32 +442,16 @@ const Main = memo(() => {
             onAnalyze={analyze}
             onCancel={cancel}
           />
+          <AnalysisStatus state={state} />
         </div>
-        <ImagePreview image={image} background={selected} matte={matte} />
+        <ImagePreview image={image} background={selected} />
+        <ColorResults
+          candidates={state.candidates}
+          selected={selected}
+          onSelect={selectColor}
+        />
+        <ColorPalette palette={state.palette} />
       </div>
-      <AnalysisStatus state={state} />
-      <ColorResults
-        candidates={state.candidates}
-        selected={selected}
-        onSelect={selectColor}
-      />
-      {state.palette && <ColorPalette palette={state.palette} />}
-      <Alert>
-        <AlertTitle>
-          Perceptual separation, not a readability guarantee
-        </AlertTitle>
-        <AlertDescription>
-          Distances are Euclidean in OKLab, not WCAG contrast ratios. We favor a
-          high average distance with low deviation, giving every palette color
-          equal weight. All visible pixels are represented by up to 64 adaptive
-          groups; a 0.02 RMS error target controls how faithfully those groups
-          represent the image. Animated images use one decoded frame.
-        </AlertDescription>
-      </Alert>
-      <footer className="text-xs text-muted-foreground">
-        Your images stay in your browser. Remote image URLs contact their host
-        directly and must allow CORS.
-      </footer>
     </main>
   );
 });

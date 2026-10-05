@@ -1,11 +1,12 @@
 import type {
   PaletteColor,
-  Candidate,
+  CategoryCandidate,
   RGB,
   SearchProgress,
 } from "@/types/types";
-import { compareCandidates, linearize, linearToOKLab, toHex } from "./color";
-import { RGB_COUNT } from "@/constants/constants";
+import { linearize, linearToOKLab, toHex } from "./color";
+import { COLOR_CATEGORIES, RGB_COUNT } from "@/constants/constants";
+import { getCategoryMask } from "./categories";
 
 // The range arguments support partitioned/test searches; production always uses the full range.
 function searchColors(
@@ -13,8 +14,15 @@ function searchColors(
   progress?: SearchProgress,
   start = 0,
   end = RGB_COUNT,
-): Candidate[] {
-  if (!palette.length || start < 0 || end > RGB_COUNT || start >= end) {
+): CategoryCandidate[] {
+  if (
+    !palette.length ||
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end > RGB_COUNT ||
+    start >= end
+  ) {
     throw new Error("Invalid search range or palette.");
   }
 
@@ -30,7 +38,9 @@ function searchColors(
     labs.set(palette[i].lab, i * 3);
   }
 
-  const best: Candidate[] = [];
+  const best: (CategoryCandidate | undefined)[] = new Array(
+    COLOR_CATEGORIES.length,
+  );
 
   let lastProgress = performance.now();
 
@@ -64,25 +74,39 @@ function searchColors(
     }
 
     const deviation = Math.sqrt(Math.max(0, m2 / palette.length));
-    const score = mean - deviation;
+    const score = minimum * Math.max(0, mean - deviation);
 
-    if (best.length < 5 || score >= best[best.length - 1].score) {
-      const rgb: RGB = [r, g, b];
-
-      const candidate: Candidate = {
-        rgb,
-        hex: toHex(rgb),
-        score,
-        mean,
-        deviation,
-        minimum,
-      };
-
-      best.push(candidate);
-      best.sort(compareCandidates);
-
-      if (best.length > 5) {
-        best.pop();
+    let mask = getCategoryMask(r, g, b, lab);
+    while (mask !== 0) {
+      const bit = mask & -mask;
+      const categoryIndex = 31 - Math.clz32(bit);
+      mask ^= bit;
+      const previous = best[categoryIndex];
+      // Exactly the shared score/minimum/deviation/RGB ordering, without
+      // allocating a candidate for ties or colors that cannot improve a slot.
+      const previousValue = previous
+        ? (previous.rgb[0] << 16) | (previous.rgb[1] << 8) | previous.rgb[2]
+        : 0;
+      if (
+        !previous ||
+        score > previous.score ||
+        (score === previous.score &&
+          (minimum > previous.minimum ||
+            (minimum === previous.minimum &&
+              (deviation < previous.deviation ||
+                (deviation === previous.deviation && value < previousValue)))))
+      ) {
+        const rgb: RGB = [r, g, b];
+        const candidate: CategoryCandidate = {
+          category: COLOR_CATEGORIES[categoryIndex].id,
+          rgb,
+          hex: toHex(rgb),
+          score,
+          mean,
+          deviation,
+          minimum,
+        };
+        best[categoryIndex] = candidate;
       }
     }
     if ((value & 8191) === 0 && performance.now() - lastProgress >= 100) {
@@ -92,7 +116,10 @@ function searchColors(
   }
 
   progress?.(end - start, end - start);
-  return best;
+  // Restricted test/partition ranges may omit categories; full search has all 12.
+  const winners: CategoryCandidate[] = [];
+  for (const candidate of best) if (candidate) winners.push(candidate);
+  return winners;
 }
 
 export default searchColors;
